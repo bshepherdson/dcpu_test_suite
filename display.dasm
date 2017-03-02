@@ -1,0 +1,137 @@
+; Display routines for the test suite.
+
+.define vram, 0x8000
+.define max_cursor, 0x8000 + 384
+
+.define fg_black, 0
+.define fg_red, 0x4000
+.define fg_blue, 0x9000
+.define fg_white, 0xf000
+.define bg_white, 0x0f00
+.define bg_blue, 0x0100
+
+:color  .dat 0
+:cursor .dat vram
+
+; Prints a 0-terminated string immediately following the call to this functon.
+; Returns to just after the string.
+:print_pc
+set a, pop ; Grab the return address off the stack.
+set push, x
+set x, a
+:print_pc_loop
+set a, [x]
+ife a, 0
+  set pc, print_pc_done
+jsr print_char
+add x, 1
+set pc, print_pc_loop
+
+:print_pc_done
+; X is pointing at the 0, advance it by one.
+add x, 1
+set a, x
+set x, pop
+set pc, a ; Returns to the caller.
+
+
+; Prints a single character. Scrolls if necessary before printing.
+:print_char ; (char) -> void
+set b, [cursor]
+ifl b, max_cursor
+  set pc, print_char_1
+
+; Scroll up a line.
+set push, i
+set push, j
+set i, vram+32 ; Deliberately not scrolling the first line,
+set j, vram+64 ; since it holds the banner.
+:scroll_loop
+sti [i], [j]
+ifl j, max_cursor
+  set pc, scroll_loop
+
+sub b, 32 ; Move the cursor to the start of the newly cleared last line.
+
+; Clear the last line.
+set i, b
+set c, [color]
+add c, 32 ; space
+:clear_line_loop
+sti [i], c
+ifl i, max_cursor
+  set pc, clear_line_loop
+
+; Now done scrolling.
+set j, pop
+set i, pop
+
+:print_char_1 ; Continue with actually printing. B is the cursor position.
+bor a, [color]
+set [b], a
+add b, 1
+set [cursor], b
+set pc, pop
+
+
+:clear_screen
+set a, vram
+set b, [color]
+add b, 32 ; space
+:clear_screen_loop
+set [a], b
+add a, 1
+ifl a, max_cursor
+  set pc, clear_screen_loop
+set pc, pop
+
+
+; Sets up the LEM: map VRAM, standard font and palette.
+:init_display
+set [color], fg_black|bg_white
+jsr clear_screen
+
+set a, dev_lem1802
+jsr get_device ; A is the device number.
+set c, a
+set a, 0 ; MEM_MAP_SCREEN interrupt.
+set b, vram
+hwi c
+set pc, pop
+
+
+; Prints an unsigned number in decimal format.
+:print_number ; (number) -> void
+ife a, 0
+  set pc, print_zero ; Special case.
+set b, print_number_buffer
+
+:print_number_loop
+ife a, 0
+  set pc, print_number_done
+set c, a
+mod c, 10 ; C is now the digit to record.
+set [b], c
+add b, 1
+div a, 10
+set pc, print_number_loop
+
+:print_number_done
+ife b, print_number_buffer
+  set pc, pop
+
+sub b, 1
+set a, [b]
+add a, 0x30 ; '0', converting to characters.
+set push, b
+jsr print_char
+set b, pop
+set pc, print_number_done
+
+:print_zero ; Special case for when the input is 0.
+set a, 0x30 ; '0'
+set pc, print_char ; tail call
+
+
+:print_number_buffer .reserve 5
+

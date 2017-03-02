@@ -1,0 +1,337 @@
+; DCPU 1.7 emulator compliance test
+; By Braden Shepherdson (shepheb) for TechCompliant.
+
+; Calling convention: A, B and C can be overwritten, as can EX.
+; X Y Z I J are preserved. First three parameters passed in A B C.
+; Return values in A. Fourth parameter on top of the stack, fifth underneath it.
+; Using C syntax, foo(1,2,3,4,5) looks like:
+; set push, 5
+; set push, 4
+; set a, 1
+; set b, 2
+; set c, 3
+; jsr foo
+
+; General plan for tests:
+; - All deliberate tests have a number, which is reported when they fail.
+;   These numbers are all .define constants that start with T_
+; - There are also numbered error states for non-tests, like PC ending up back
+;   at 0.
+
+; ENTRY POINT
+:reset_detected
+  ; A bit of self-modifying code here.
+  ; This detects if PC returns to 0 because of an emulator bug.
+  set [reset_detected+0], 0x7F81 ; Write "SET PC,"
+  set [reset_detected+1], why_did_we_reset ; Write imm16
+  set pc, main
+
+.include "hardware.dasm"
+.include "display.dasm"
+
+:main
+set sp, 0xEF80
+; Initialization
+jsr init_hardware
+jsr init_display
+
+; Print the banner
+set [color], bg_blue | fg_white
+jsr print_pc
+.dat "DCPU-16 EMULATOR COMPLIANCE TEST", 0
+add [cursor], 32 ; Leave a blank line.
+
+; Main block of tests.
+jsr test_suite_branch_failures
+
+set [color], fg_blue | bg_white
+set a, [test_count]
+jsr print_number
+jsr print_pc
+.dat " tests passed",0
+
+set pc, spin ; Infinite loop.
+
+
+; Test numbers
+
+; Holds the number of the most-recently-attempted test.
+:test .dat -1
+:test_count .dat 0
+
+; All of these branches should fail.
+:test_suite_branch_failures
+; Test for false positives on each flavour of if. All of these tests should
+; fail, resulting in no jumps.
+jsr test_ifb
+jsr test_ifc
+jsr test_ife
+jsr test_ifn
+jsr test_ifg
+jsr test_ifl
+jsr test_ifa
+jsr test_ifu
+
+:test_ifb
+.define T_IFB_zero, 0
+.define T_IFB_mismatch, 1
+.define T_IFB_ffff, 2
+set [test], T_IFB_zero
+add [test_count], 1
+set a, 0
+ifb a, 0
+  jsr fail
+set [test], T_IFB_mismatch
+add [test_count], 1
+set a, 0xf000
+set b, 3
+ifb a, b
+  jsr fail
+set [test], T_IFB_ffff
+add [test_count], 1
+set a, 0xffff
+ifb a, 0
+  jsr fail
+set pc, pop
+
+:test_ifc
+.define T_IFC_single_bit, 10
+.define T_IFC_ffff, 11
+.define T_IFC_top_bit, 12
+set [test], T_IFC_single_bit
+add [test_count], 1
+set a, 4
+ifc a, 4
+  jsr fail
+set [test], T_IFC_ffff
+add [test_count], 1
+set a, 0xffff
+set b, 0xffff
+ifc a, b
+  jsr fail
+set [test], T_IFC_top_bit
+add [test_count], 1
+set a, 0x8000
+ifc a, 0x8000
+  jsr fail
+set pc, pop
+
+:test_ife
+.define T_IFE_zero, 20
+.define T_IFE_ffff, 21
+.define T_IFE_misc, 22
+
+set [test], T_IFE_zero
+add [test_count], 1
+set a, 0
+ife a, 1
+  jsr fail
+set [test], T_IFE_ffff
+add [test_count], 1
+set a, 0xffff
+ife a, 0
+  jsr fail
+set [test], T_IFE_misc
+add [test_count], 1
+set a, 219
+ife a, -9
+  jsr fail
+set pc, pop
+
+:test_ifn
+.define T_IFN_zero, 30
+.define T_IFN_ffff, 31
+.define T_IFN_misc, 32
+
+set [test], T_IFN_zero
+add [test_count], 1
+set a, 0
+ifn a, 0
+  jsr fail
+set [test], T_IFN_ffff
+add [test_count], 1
+set a, 0xffff
+ifn a, 0xffff
+  jsr fail
+set [test], T_IFN_misc
+add [test_count], 1
+set a, 219
+ifn a, 219
+  jsr fail
+set pc, pop
+
+
+:test_ifg ; Unsigned!
+.define T_IFG_zero, 40
+.define T_IFG_basic, 41
+.define T_IFG_near_switch, 42
+.define T_IFG_negative_one, 43
+.define T_IFG_near_top, 44
+
+set [test], T_IFG_zero
+add [test_count], 1
+set a, 0
+ifg a, 0 ; 0 !> 0
+  jsr fail
+set [test], T_IFG_basic
+add [test_count], 1
+set a, 20
+ifg a, 65 ; 20 !> 65
+  jsr fail
+set [test], T_IFG_near_switch
+add [test_count], 1
+set a, 0x7ffe
+ifg a, 0x8003
+  jsr fail
+set [test], T_IFG_negative_one
+add [test_count], 1
+set a, 0
+ifg a, 0xffff ; 0 !> 0xffff, even though that's negative-one when signed.
+  jsr fail
+set [test], T_IFG_near_top
+add [test_count], 1
+set a, 0xfff8
+ifg a, 0xfffe
+  jsr fail
+set pc, pop
+
+:test_ifl ; Unsigned!
+.define T_IFL_zero, 50
+.define T_IFL_basic, 51
+.define T_IFL_near_switch, 52
+.define T_IFL_negative_one, 53
+.define T_IFL_near_top, 54
+
+set [test], T_IFL_zero
+add [test_count], 1
+set a, 0
+ifl a, 0 ; 0 !< 0
+  jsr fail
+set [test], T_IFL_basic
+add [test_count], 1
+set a, 48
+ifl a, 22 ; 48 !< 22
+  jsr fail
+set [test], T_IFL_near_switch
+add [test_count], 1
+set a, 0x8003
+ifl a, 0x7ffe
+  jsr fail
+set [test], T_IFL_negative_one
+add [test_count], 1
+set a, 0xffff
+ifl a, 0 ; 0xffff !< 0, even though that's negative-one when signed.
+  jsr fail
+set [test], T_IFL_near_top
+add [test_count], 1
+set a, 0xfffe
+ifl a, 0xfff8
+  jsr fail
+set pc, pop
+
+
+:test_ifa ; Signed.
+.define T_IFA_zero, 60
+.define T_IFA_basic, 61
+.define T_IFA_near_switch, 62
+.define T_IFA_negative_one, 63
+.define T_IFA_near_top, 64
+
+set [test], T_IFA_zero
+add [test_count], 1
+set a, 0
+ifa a, 0 ; 0 !> 0
+  jsr fail
+set [test], T_IFA_basic
+add [test_count], 1
+set a, 29
+ifa a, 65
+  jsr fail
+set [test], T_IFA_near_switch
+add [test_count], 1
+set a, 0x8003 ; large negative
+ifa a, 0x7ffe ; large positive - this test proves the signed-ness is working.
+  jsr fail
+set [test], T_IFA_negative_one
+add [test_count], 1
+set a, 0xffff
+ifa a, 0 ; -1 !> 0, even though that's a big number when unsigned.
+  jsr fail
+set [test], T_IFA_near_top
+add [test_count], 1
+set a, 0xfff8
+ifa a, 0xfffe
+  jsr fail
+set pc, pop
+
+:test_ifu ; Signed.
+.define T_IFU_zero, 60
+.define T_IFU_basic, 61
+.define T_IFU_near_switch, 62
+.define T_IFU_negative_one, 63
+.define T_IFU_near_top, 64
+
+set [test], T_IFU_zero
+add [test_count], 1
+set a, 0
+ifu a, 0 ; 0 !> 0
+  jsr fail
+set [test], T_IFU_basic
+add [test_count], 1
+set a, 29
+ifu a, 22
+  jsr fail
+set [test], T_IFU_near_switch
+add [test_count], 1
+set a, 0x7ffe ; large positive
+ifu a, 0x8003 ; large negative - this test proves the signed-ness is working.
+  jsr fail
+set [test], T_IFU_negative_one
+add [test_count], 1
+set a, 0
+ifu a, 0xffff ; 0 !< -1, even though that's a big number when unsigned.
+  jsr fail
+set [test], T_IFU_near_top
+add [test_count], 1
+set a, 0xfffe
+ifu a, 0xfff8
+  jsr fail
+set pc, pop
+
+
+; Things to test:
+; - correct branches
+; - nested branches working
+; - nested branches failing on the first and subsequent steps.
+; - math and bit shifts (especially EX handling)
+; - division - enforce symmetric division?
+; - correct handling of arguments, especially weird combinations like
+;   set peek, pop.
+
+
+; Called if we end up back at PC 0 for some reason.
+:why_did_we_reset
+ias 0
+set [color], fg_red | bg_white
+jsr print_pc
+.dat 10
+;     0123456789ABCDEF0123456789ABCDEF
+.dat "DCPU reset detected! That is not"
+.dat "supposed to happen.",0
+set pc, spin
+
+
+; Called when a test fails. Reports the error, then spins.
+:fail ; () -> void
+set [color], fg_red | bg_white
+jsr print_pc
+.dat "Test failed: ", 0
+set a, [test]
+jsr print_number
+set pc, spin
+
+
+; Loops forever.
+:spin
+sub pc, 1
+

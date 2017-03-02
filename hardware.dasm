@@ -1,0 +1,108 @@
+; Generic hardware loaders.
+
+; Indices into the tables.
+.define dev_lem1802, 0
+.define dev_keyboard, 1
+.define dev_disk, 2
+
+.define _dev_table_number, 0
+.define _dev_table_id_hi, 1
+.define _dev_table_id_lo, 2
+.define _dev_table_manufacturer_hi, 3
+.define _dev_table_manufacturer_lo, 4
+.define _dev_table_width, 5
+
+:_device_ids .dat 0, 0, 0
+:_device_ids_end
+
+
+:_dev_table
+; LEM1802: ID 0x734df615 Maker 0x1c6c8b36 (TC ID)
+.dat dev_lem1802, 0x734d, 0xf615, 0x1c6c, 0x8b36
+; LEM1802: ID 0x7349f615 Maker 0x1c6c8b36 (Notch ID)
+.dat dev_lem1802, 0x7348, 0xf615, 0x1c6c, 0x8b36
+
+; Keyboard: ID 0x30c17406 Maker 0 (generic, TC ID)
+.dat dev_keyboard, 0x30c1, 0x7406, 0, 0
+; Keyboard: ID 0x30cf7406 Maker 0 (generic, Notch ID)
+.dat dev_keyboard, 0x30cf, 0x7406, 0, 0
+
+; Floppy: ID 0x4fd524c5 Maker 0x1eb37e91 (Mackapar 3.5" floppy, TC ID)
+.dat dev_disk, 0x4fd5, 0x24c5, 0x1eb3, 0x7e91
+:_dev_table_end
+
+
+; Looks up devices and populates their numbers.
+:init_hardware
+set push, x
+set push, y
+hwn x
+set y, 0
+
+:init_hardware_loop
+ife x, y
+  set pc, init_hardware_loop_end
+set a, y
+jsr _search_dev_table
+add y, 1
+set pc, init_hardware_loop
+
+:init_hardware_loop_end
+set y, pop
+set x, pop
+set pc, pop
+
+
+
+:_search_dev_table ; (device_number) -> void
+set push, x
+set push, y
+set push, z
+set push, a
+
+hwq a ; B:A is ID, C is version, Y:X is manufacturer.
+
+set z, _dev_table
+:_search_dev_table_loop
+ifn b, [z + _dev_table_id_hi]
+  set pc, _search_dev_table_no_match
+ifn a, [z + _dev_table_id_lo]
+  set pc, _search_dev_table_no_match
+
+ife [z + _dev_table_manufacturer_hi], 0
+  set pc, _search_dev_table_match
+
+ifn y, [z + _dev_table_manufacturer_hi]
+  set pc, _search_dev_table_no_match
+ifn x, [z + _dev_table_manufacturer_lo]
+  set pc, _search_dev_table_no_match
+
+:_search_dev_table_match ; If we get here, we found a match.
+; Pop r0, the device number, from the stack (it's at the lowest address).
+set a, [z + _dev_table_number]
+set [a + _device_ids], pop
+set pc, _search_dev_table_done
+
+:_search_dev_table_no_match
+add z, _dev_table_width
+ifl z, _dev_table_end
+  set pc, _search_dev_table_loop
+
+; Otherwise, bail.
+set a, pop
+
+:_search_dev_table_done
+set z, pop
+set y, pop
+set x, pop
+set pc, pop
+
+
+:get_device ; (index into _dev_table) -> device number (-1 on failure)
+set b, a
+add b, _device_ids
+set a, -1
+ifl b, _device_ids_end
+  set a, [b]
+set pc, pop
+
