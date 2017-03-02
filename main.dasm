@@ -18,6 +18,11 @@
 ; - There are also numbered error states for non-tests, like PC ending up back
 ;   at 0.
 
+; Tests are introduced with the header:
+; mktest TEST_NAME, number
+; That sets the [test] variable, and bumps [test_count].
+.macro mktest=.define %0, %1 %n set [test], %0 %n add [test_count], 1
+
 ; ENTRY POINT
 :reset_detected
   ; A bit of self-modifying code here.
@@ -73,88 +78,70 @@ jsr test_ifa
 jsr test_ifu
 
 :test_ifb
-.define T_IFB_zero, 0
-.define T_IFB_mismatch, 1
-.define T_IFB_ffff, 2
-set [test], T_IFB_zero
-add [test_count], 1
+mktest T_IFB_zero, 0
 set a, 0
 ifb a, 0
   jsr fail
-set [test], T_IFB_mismatch
-add [test_count], 1
+
+mktest T_IFB_mismatch, 1
 set a, 0xf000
 set b, 3
 ifb a, b
   jsr fail
-set [test], T_IFB_ffff
-add [test_count], 1
+
+mktest T_IFB_ffff, 2
 set a, 0xffff
 ifb a, 0
   jsr fail
 set pc, pop
 
 :test_ifc
-.define T_IFC_single_bit, 10
-.define T_IFC_ffff, 11
-.define T_IFC_top_bit, 12
-set [test], T_IFC_single_bit
-add [test_count], 1
+mktest T_IFC_single_bit, 10
 set a, 4
 ifc a, 4
   jsr fail
-set [test], T_IFC_ffff
-add [test_count], 1
+
+mktest T_IFC_ffff, 11
 set a, 0xffff
 set b, 0xffff
 ifc a, b
   jsr fail
-set [test], T_IFC_top_bit
-add [test_count], 1
+
+mktest T_IFC_top_bit, 12
 set a, 0x8000
 ifc a, 0x8000
   jsr fail
 set pc, pop
 
 :test_ife
-.define T_IFE_zero, 20
-.define T_IFE_ffff, 21
-.define T_IFE_misc, 22
-
-set [test], T_IFE_zero
-add [test_count], 1
+mktest T_IFE_zero, 20
 set a, 0
 ife a, 1
   jsr fail
-set [test], T_IFE_ffff
-add [test_count], 1
+
+mktest T_IFE_ffff, 21
 set a, 0xffff
 ife a, 0
   jsr fail
-set [test], T_IFE_misc
-add [test_count], 1
+
+mktest T_IFE_misc, 22
 set a, 219
 ife a, -9
   jsr fail
 set pc, pop
 
 :test_ifn
-.define T_IFN_zero, 30
-.define T_IFN_ffff, 31
-.define T_IFN_misc, 32
-
-set [test], T_IFN_zero
-add [test_count], 1
+mktest T_IFN_zero, 30
 set a, 0
 ifn a, 0
   jsr fail
-set [test], T_IFN_ffff
-add [test_count], 1
+
+mktest T_IFN_ffff, 31
 set a, 0xffff
 ifn a, 0xffff
   jsr fail
-set [test], T_IFN_misc
-add [test_count], 1
+
+mktest T_IFN_misc, 32
 set a, 219
 ifn a, 219
   jsr fail
@@ -162,68 +149,54 @@ set pc, pop
 
 
 :test_ifg ; Unsigned!
-.define T_IFG_zero, 40
-.define T_IFG_basic, 41
-.define T_IFG_near_switch, 42
-.define T_IFG_negative_one, 43
-.define T_IFG_near_top, 44
-
-set [test], T_IFG_zero
-add [test_count], 1
+mktest T_IFG_zero, 40
 set a, 0
 ifg a, 0 ; 0 !> 0
   jsr fail
-set [test], T_IFG_basic
-add [test_count], 1
+
+mktest T_IFG_basic, 41
 set a, 20
 ifg a, 65 ; 20 !> 65
   jsr fail
-set [test], T_IFG_near_switch
-add [test_count], 1
+
+mktest T_IFG_near_switch, 42
 set a, 0x7ffe
 ifg a, 0x8003
   jsr fail
-set [test], T_IFG_negative_one
-add [test_count], 1
+
+mktest T_IFG_negative_one, 43
 set a, 0
 ifg a, 0xffff ; 0 !> 0xffff, even though that's negative-one when signed.
   jsr fail
-set [test], T_IFG_near_top
-add [test_count], 1
+
+mktest T_IFG_near_top, 44
 set a, 0xfff8
 ifg a, 0xfffe
   jsr fail
 set pc, pop
 
 :test_ifl ; Unsigned!
-.define T_IFL_zero, 50
-.define T_IFL_basic, 51
-.define T_IFL_near_switch, 52
-.define T_IFL_negative_one, 53
-.define T_IFL_near_top, 54
-
-set [test], T_IFL_zero
-add [test_count], 1
+mktest T_IFL_zero, 50
 set a, 0
 ifl a, 0 ; 0 !< 0
   jsr fail
-set [test], T_IFL_basic
-add [test_count], 1
+
+mktest T_IFL_basic, 51
 set a, 48
 ifl a, 22 ; 48 !< 22
   jsr fail
-set [test], T_IFL_near_switch
-add [test_count], 1
+
+mktest T_IFL_near_switch, 52
 set a, 0x8003
 ifl a, 0x7ffe
   jsr fail
-set [test], T_IFL_negative_one
-add [test_count], 1
+
+mktest T_IFL_negative_one, 53
 set a, 0xffff
 ifl a, 0 ; 0xffff !< 0, even though that's negative-one when signed.
   jsr fail
-set [test], T_IFL_near_top
-add [test_count], 1
+
+mktest T_IFL_near_top, 54
 set a, 0xfffe
 ifl a, 0xfff8
   jsr fail
@@ -231,68 +204,54 @@ set pc, pop
 
 
 :test_ifa ; Signed.
-.define T_IFA_zero, 60
-.define T_IFA_basic, 61
-.define T_IFA_near_switch, 62
-.define T_IFA_negative_one, 63
-.define T_IFA_near_top, 64
-
-set [test], T_IFA_zero
-add [test_count], 1
+mktest T_IFA_zero, 60
 set a, 0
 ifa a, 0 ; 0 !> 0
   jsr fail
-set [test], T_IFA_basic
-add [test_count], 1
+
+mktest T_IFA_basic, 61
 set a, 29
 ifa a, 65
   jsr fail
-set [test], T_IFA_near_switch
-add [test_count], 1
+
+mktest T_IFA_near_switch, 62
 set a, 0x8003 ; large negative
 ifa a, 0x7ffe ; large positive - this test proves the signed-ness is working.
   jsr fail
-set [test], T_IFA_negative_one
-add [test_count], 1
+
+mktest T_IFA_negative_one, 63
 set a, 0xffff
 ifa a, 0 ; -1 !> 0, even though that's a big number when unsigned.
   jsr fail
-set [test], T_IFA_near_top
-add [test_count], 1
+
+mktest T_IFA_near_top, 64
 set a, 0xfff8
 ifa a, 0xfffe
   jsr fail
 set pc, pop
 
 :test_ifu ; Signed.
-.define T_IFU_zero, 60
-.define T_IFU_basic, 61
-.define T_IFU_near_switch, 62
-.define T_IFU_negative_one, 63
-.define T_IFU_near_top, 64
-
-set [test], T_IFU_zero
-add [test_count], 1
+mktest T_IFU_zero, 70
 set a, 0
 ifu a, 0 ; 0 !> 0
   jsr fail
-set [test], T_IFU_basic
-add [test_count], 1
+
+mktest T_IFU_basic, 71
 set a, 29
 ifu a, 22
   jsr fail
-set [test], T_IFU_near_switch
-add [test_count], 1
+
+mktest T_IFU_near_switch, 72
 set a, 0x7ffe ; large positive
 ifu a, 0x8003 ; large negative - this test proves the signed-ness is working.
   jsr fail
-set [test], T_IFU_negative_one
-add [test_count], 1
+
+mktest T_IFU_negative_one, 73
 set a, 0
 ifu a, 0xffff ; 0 !< -1, even though that's a big number when unsigned.
   jsr fail
-set [test], T_IFU_near_top
-add [test_count], 1
+
+mktest T_IFU_near_top, 74
 set a, 0xfffe
 ifu a, 0xfff8
   jsr fail
