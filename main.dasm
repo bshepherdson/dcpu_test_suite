@@ -48,7 +48,11 @@ add [cursor], 32 ; Leave a blank line.
 
 ; Main block of tests.
 jsr test_suite_branch_failures
+jsr test_suite_branch_success
+jsr test_suite_branch_nesting
 
+
+; Tests all passed!
 set [color], fg_blue | bg_white
 set a, [test_count]
 jsr print_number
@@ -58,214 +62,22 @@ jsr print_pc
 set pc, spin ; Infinite loop.
 
 
+
 ; Test numbers
 
 ; Holds the number of the most-recently-attempted test.
 :test .dat -1
 :test_count .dat 0
 
-; All of these branches should fail.
-:test_suite_branch_failures
-; Test for false positives on each flavour of if. All of these tests should
-; fail, resulting in no jumps.
-jsr test_ifb
-jsr test_ifc
-jsr test_ife
-jsr test_ifn
-jsr test_ifg
-jsr test_ifl
-jsr test_ifa
-jsr test_ifu
 
-:test_ifb
-mktest T_IFB_zero, 0
-set a, 0
-ifb a, 0
-  jsr fail
-
-mktest T_IFB_mismatch, 1
-set a, 0xf000
-set b, 3
-ifb a, b
-  jsr fail
-
-mktest T_IFB_ffff, 2
-set a, 0xffff
-ifb a, 0
-  jsr fail
-set pc, pop
-
-:test_ifc
-mktest T_IFC_single_bit, 10
-set a, 4
-ifc a, 4
-  jsr fail
-
-mktest T_IFC_ffff, 11
-set a, 0xffff
-set b, 0xffff
-ifc a, b
-  jsr fail
-
-mktest T_IFC_top_bit, 12
-set a, 0x8000
-ifc a, 0x8000
-  jsr fail
-set pc, pop
-
-:test_ife
-mktest T_IFE_zero, 20
-set a, 0
-ife a, 1
-  jsr fail
-
-mktest T_IFE_ffff, 21
-set a, 0xffff
-ife a, 0
-  jsr fail
-
-mktest T_IFE_misc, 22
-set a, 219
-ife a, -9
-  jsr fail
-set pc, pop
-
-:test_ifn
-mktest T_IFN_zero, 30
-set a, 0
-ifn a, 0
-  jsr fail
-
-mktest T_IFN_ffff, 31
-set a, 0xffff
-ifn a, 0xffff
-  jsr fail
-
-mktest T_IFN_misc, 32
-set a, 219
-ifn a, 219
-  jsr fail
-set pc, pop
-
-
-:test_ifg ; Unsigned!
-mktest T_IFG_zero, 40
-set a, 0
-ifg a, 0 ; 0 !> 0
-  jsr fail
-
-mktest T_IFG_basic, 41
-set a, 20
-ifg a, 65 ; 20 !> 65
-  jsr fail
-
-mktest T_IFG_near_switch, 42
-set a, 0x7ffe
-ifg a, 0x8003
-  jsr fail
-
-mktest T_IFG_negative_one, 43
-set a, 0
-ifg a, 0xffff ; 0 !> 0xffff, even though that's negative-one when signed.
-  jsr fail
-
-mktest T_IFG_near_top, 44
-set a, 0xfff8
-ifg a, 0xfffe
-  jsr fail
-set pc, pop
-
-:test_ifl ; Unsigned!
-mktest T_IFL_zero, 50
-set a, 0
-ifl a, 0 ; 0 !< 0
-  jsr fail
-
-mktest T_IFL_basic, 51
-set a, 48
-ifl a, 22 ; 48 !< 22
-  jsr fail
-
-mktest T_IFL_near_switch, 52
-set a, 0x8003
-ifl a, 0x7ffe
-  jsr fail
-
-mktest T_IFL_negative_one, 53
-set a, 0xffff
-ifl a, 0 ; 0xffff !< 0, even though that's negative-one when signed.
-  jsr fail
-
-mktest T_IFL_near_top, 54
-set a, 0xfffe
-ifl a, 0xfff8
-  jsr fail
-set pc, pop
-
-
-:test_ifa ; Signed.
-mktest T_IFA_zero, 60
-set a, 0
-ifa a, 0 ; 0 !> 0
-  jsr fail
-
-mktest T_IFA_basic, 61
-set a, 29
-ifa a, 65
-  jsr fail
-
-mktest T_IFA_near_switch, 62
-set a, 0x8003 ; large negative
-ifa a, 0x7ffe ; large positive - this test proves the signed-ness is working.
-  jsr fail
-
-mktest T_IFA_negative_one, 63
-set a, 0xffff
-ifa a, 0 ; -1 !> 0, even though that's a big number when unsigned.
-  jsr fail
-
-mktest T_IFA_near_top, 64
-set a, 0xfff8
-ifa a, 0xfffe
-  jsr fail
-set pc, pop
-
-:test_ifu ; Signed.
-mktest T_IFU_zero, 70
-set a, 0
-ifu a, 0 ; 0 !> 0
-  jsr fail
-
-mktest T_IFU_basic, 71
-set a, 29
-ifu a, 22
-  jsr fail
-
-mktest T_IFU_near_switch, 72
-set a, 0x7ffe ; large positive
-ifu a, 0x8003 ; large negative - this test proves the signed-ness is working.
-  jsr fail
-
-mktest T_IFU_negative_one, 73
-set a, 0
-ifu a, 0xffff ; 0 !< -1, even though that's a big number when unsigned.
-  jsr fail
-
-mktest T_IFU_near_top, 74
-set a, 0xfffe
-ifu a, 0xfff8
-  jsr fail
-set pc, pop
-
+.include "test_branches.dasm"
 
 ; Things to test:
-; - correct branches
-; - nested branches working
-; - nested branches failing on the first and subsequent steps.
-; - math and bit shifts (especially EX handling)
-; - division - enforce symmetric division?
 ; - correct handling of arguments, especially weird combinations like
 ;   set peek, pop.
+; - math and bit shifts (especially EX handling)
+; - division - enforce symmetric division?
+; - interrupts - probably use timer
 
 
 ; Called if we end up back at PC 0 for some reason.

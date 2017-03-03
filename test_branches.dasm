@@ -1,0 +1,383 @@
+; Contains a few test suites related to branches.
+; These are tested early, to hopefully avoid confusing failures in other tests
+; that are really caused by broken branching.
+
+:test_suite_branch_failures
+; Test for false positives on each flavour of if. All of these tests should
+; fail, resulting in no jumps.
+jsr test_ifb
+jsr test_ifc
+jsr test_ife
+jsr test_ifn
+jsr test_ifg
+jsr test_ifl
+jsr test_ifa
+jsr test_ifu
+set pc, pop
+
+:test_ifb
+mktest T_fail_IFB_zero, 0
+set a, 0
+ifb a, 0
+  jsr fail
+
+mktest T_fail_IFB_mismatch, 1
+set a, 0xf000
+set b, 3
+ifb a, b
+  jsr fail
+
+mktest T_fail_IFB_ffff, 2
+set a, 0xffff
+ifb a, 0
+  jsr fail
+set pc, pop
+
+:test_ifc
+mktest T_fail_IFC_single_bit, 10
+set a, 4
+ifc a, 4
+  jsr fail
+
+mktest T_fail_IFC_ffff, 11
+set a, 0xffff
+set b, 0xffff
+ifc a, b
+  jsr fail
+
+mktest T_fail_IFC_top_bit, 12
+set a, 0x8000
+ifc a, 0x8000
+  jsr fail
+set pc, pop
+
+:test_ife
+mktest T_fail_IFE_zero, 20
+set a, 0
+ife a, 1
+  jsr fail
+
+mktest T_fail_IFE_ffff, 21
+set a, 0xffff
+ife a, 0
+  jsr fail
+
+mktest T_fail_IFE_misc, 22
+set a, 219
+ife a, -9
+  jsr fail
+set pc, pop
+
+:test_ifn
+mktest T_fail_IFN_zero, 30
+set a, 0
+ifn a, 0
+  jsr fail
+
+mktest T_fail_IFN_ffff, 31
+set a, 0xffff
+ifn a, 0xffff
+  jsr fail
+
+mktest T_fail_IFN_misc, 32
+set a, 219
+ifn a, 219
+  jsr fail
+set pc, pop
+
+
+:test_ifg ; Unsigned!
+mktest T_fail_IFG_zero, 40
+set a, 0
+ifg a, 0 ; 0 !> 0
+  jsr fail
+
+mktest T_fail_IFG_basic, 41
+set a, 20
+ifg a, 65 ; 20 !> 65
+  jsr fail
+
+mktest T_fail_IFG_near_switch, 42
+set a, 0x7ffe
+ifg a, 0x8003
+  jsr fail
+
+mktest T_fail_IFG_negative_one, 43
+set a, 0
+ifg a, 0xffff ; 0 !> 0xffff, even though that's negative-one when signed.
+  jsr fail
+
+mktest T_fail_IFG_near_top, 44
+set a, 0xfff8
+ifg a, 0xfffe
+  jsr fail
+
+mktest T_fail_IFG_equal, 45
+set a, 77
+ifg a, 77
+  jsr fail
+set pc, pop
+
+:test_ifl ; Unsigned!
+mktest T_fail_IFL_zero, 50
+set a, 0
+ifl a, 0 ; 0 !< 0
+  jsr fail
+
+mktest T_fail_IFL_basic, 51
+set a, 48
+ifl a, 22 ; 48 !< 22
+  jsr fail
+
+mktest T_fail_IFL_near_switch, 52
+set a, 0x8003
+ifl a, 0x7ffe
+  jsr fail
+
+mktest T_fail_IFL_negative_one, 53
+set a, 0xffff
+ifl a, 0 ; 0xffff !< 0, even though that's negative-one when signed.
+  jsr fail
+
+mktest T_fail_IFL_near_top, 54
+set a, 0xfffe
+ifl a, 0xfff8
+  jsr fail
+
+mktest T_fail_IFL_equal, 55
+set a, 77
+ifl a, 77
+  jsr fail
+set pc, pop
+
+
+:test_ifa ; Signed.
+mktest T_fail_IFA_zero, 60
+set a, 0
+ifa a, 0 ; 0 !> 0
+  jsr fail
+
+mktest T_fail_IFA_basic, 61
+set a, 29
+ifa a, 65
+  jsr fail
+
+mktest T_fail_IFA_near_switch, 62
+set a, 0x8003 ; large negative
+ifa a, 0x7ffe ; large positive - this test proves the signed-ness is working.
+  jsr fail
+
+mktest T_fail_IFA_negative_one, 63
+set a, 0xffff
+ifa a, 0 ; -1 !> 0, even though that's a big number when unsigned.
+  jsr fail
+
+mktest T_fail_IFA_near_top, 64
+set a, 0xfff8
+ifa a, 0xfffe
+  jsr fail
+
+mktest T_fail_IFA_equal, 65
+set a, 77
+ifa a, 77
+  jsr fail
+set pc, pop
+
+:test_ifu ; Signed.
+mktest T_fail_IFU_zero, 70
+set a, 0
+ifu a, 0 ; 0 !> 0
+  jsr fail
+
+mktest T_fail_IFU_basic, 71
+set a, 29
+ifu a, 22
+  jsr fail
+
+mktest T_fail_IFU_near_switch, 72
+set a, 0x7ffe ; large positive
+ifu a, 0x8003 ; large negative - this test proves the signed-ness is working.
+  jsr fail
+
+mktest T_fail_IFU_negative_one, 73
+set a, 0
+ifu a, 0xffff ; 0 !< -1, even though that's a big number when unsigned.
+  jsr fail
+
+mktest T_fail_IFU_near_top, 74
+set a, 0xfffe
+ifu a, 0xfff8
+  jsr fail
+
+mktest T_fail_IFU_equal, 75
+set a, 77
+ifu a, 77
+  jsr fail
+set pc, pop
+
+
+; A few tests for each branch type that should pass.
+:test_suite_branch_success
+jsr test_ifb_passing
+jsr test_ifc_passing
+jsr test_ife_passing
+jsr test_ifn_passing
+jsr test_ifg_passing
+jsr test_ifl_passing
+jsr test_ifa_passing
+jsr test_ifu_passing
+set pc, pop
+
+:test_ifb_passing
+mktest T_pass_IFB_single_bit, 100
+set a, 4
+ifb a, 4
+  add pc, 2
+jsr fail
+mktest T_pass_IFB_one_of_many, 101
+set a, 0xc571
+ifb a, 0x100 ; Overlaps the above.
+  add pc, 2
+jsr fail
+mktest T_pass_IFB_reversed, 102
+set a, 0x100
+ifb a, 0xc571
+  add pc, 2
+jsr fail
+set pc, pop
+
+:test_ifc_passing
+mktest T_pass_IFC_zero, 110
+set a, 0x76f3
+ifc a, 0
+  add pc, 2
+jsr fail
+mktest T_pass_IFC_many_no_match, 111
+set a, 0x76f3
+ifc a, 0x8104
+  add pc, 2
+jsr fail
+set pc, pop
+
+:test_ife_passing
+mktest T_pass_IFE_zero, 120
+set a, 0
+ife a, 0
+  add pc, 2
+jsr fail
+mktest T_pass_IFE_ffff, 121
+set a, -1
+ife a, -1
+  add pc, 2
+jsr fail
+mktest T_pass_IFE_misc, 122
+set a, 0x8973
+ife a, 0x8973
+  add pc, 2
+jsr fail
+set pc, pop
+
+:test_ifn_passing
+mktest T_pass_IFN_zero, 130
+set a, 0
+ifn a, 7
+  add pc, 2
+jsr fail
+mktest T_pass_IFN_ffff, 131
+set a, -1
+ifn a, 0xda89
+  add pc, 2
+jsr fail
+mktest T_pass_IFN_misc, 132
+set a, 0x8973
+ifn a, 262
+  add pc, 2
+jsr fail
+set pc, pop
+
+:test_ifg_passing
+mktest T_pass_IFG_zero, 140
+set a, 6
+ifg a, 0
+  add pc, 2
+jsr fail
+mktest T_pass_IFG_neg_one, 141 ; IFG is unsigned, so -1 = 0xffff > 1
+set a, -1
+ifg a, 1
+  add pc, 2
+jsr fail
+set pc, pop
+
+:test_ifl_passing
+mktest T_pass_IFL_zero, 150
+set a, 0
+ifl a, 6
+  add pc, 2
+jsr fail
+mktest T_pass_IFL_neg_one, 151 ; IFL is unsigned, so 1 < -1 = 0xffff
+set a, 1
+ifl a, -1
+  add pc, 2
+jsr fail
+
+:test_ifa_passing
+mktest T_pass_IFA_neg_one, 155 ; IFA is signed, so 1 > -1.
+set a, 1
+ifa a, -1
+  add pc, 2
+jsr fail
+set pc, pop
+
+:test_ifu_passing
+mktest T_pass_IFU_neg_one, 158 ; IFU is signed, so -1 < 1.
+set a, -1
+ifu a, 1
+  add pc, 2
+jsr fail
+set pc, pop
+
+
+
+:test_suite_branch_nesting ; Tests that cascading branches work correctly.
+; First, a simple positive check:
+mktest T_branch_cascading_works, 200
+set a, 45
+set b, 60
+set c, 0
+
+ife a, 45
+  ifl a, b
+    set c, 12
+
+ife c, 0
+  jsr fail
+
+
+mktest T_branch_cascading_first_fails, 201
+set c, 0
+ife a, 30
+  ifg a, 0
+    ifl a, 90
+      set c, 800
+ifn c, 0
+  jsr fail
+
+mktest T_branch_cascading_second_fails, 202
+set c, 0
+ife a, 45
+  ifg a, 90
+    ifl a, 90
+      set c, 700
+ifn c, 0
+  jsr fail
+
+mktest T_branch_cascading_third_fails, 203
+set c, 0
+ife a, 45
+  ifg a, 90
+    ifl a, 20
+      set c, 600
+ifn c, 0
+  jsr fail
+
+set pc, pop
