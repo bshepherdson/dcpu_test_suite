@@ -50,6 +50,7 @@ add [cursor], 32 ; Leave a blank line.
 jsr test_suite_branch_failures
 jsr test_suite_branch_success
 jsr test_suite_branch_nesting
+jsr test_suite_arguments
 
 
 ; Tests all passed!
@@ -71,6 +72,7 @@ set pc, spin ; Infinite loop.
 
 
 .include "test_branches.dasm"
+.include "test_arguments.dasm"
 
 ; Things to test:
 ; - correct handling of arguments, especially weird combinations like

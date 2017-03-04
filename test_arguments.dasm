@@ -1,0 +1,235 @@
+; These tests explore obscure behavior relating to the order of arguments.
+; These are mostly related to stack operations and EX.
+
+:test_suite_arguments
+jsr test_lhs_push
+jsr test_mangling_sp
+jsr test_pick
+jsr test_ex
+jsr test_sti_std
+set pc, pop
+
+
+:old_sp .dat 0
+.reserve 16
+:temp_stack
+
+:test_lhs_push
+set [old_sp], sp
+set sp, temp_stack
+
+; Tests what PUSH in the left-hand slot does with a read/write operation like
+; ADD. The correct answer is it's equivalent to PEEK: pop the top value, modify
+; it, and push it back.
+mktest T_lhs_push_rw, 200
+set push, 6
+set push, 4
+add push, 3 ; This should pop the 4, add 3 to it, and push it back.
+            ; That should leave 7 on top with 6 underneath.
+
+ifn sp, temp_stack - 2
+  jsr fail
+ifn [temp_stack-1], 6
+  jsr fail
+ifn [temp_stack-2], 7
+  jsr fail
+
+
+; Combining push and pop on SET is a no-op.
+mktest T_set_push_pop, 201
+set push, pop ; Does nothing.
+ifn sp, temp_stack - 2
+  jsr fail
+ifn [temp_stack-1], 6
+  jsr fail
+ifn [temp_stack-2], 7
+  jsr fail
+
+; Combining push and pop on ADD combines the top two values on the stack,
+; leaving one.
+mktest T_add_push_pop, 202
+add push, pop ; Adds the 6 and 7 leaving 13.
+ifn sp, temp_stack - 1
+  jsr fail
+ifn [temp_stack-1], 13
+  jsr fail
+
+; Combining push and pop in a read-only operation is a double-pop.
+mktest T_ife_push_pop, 203
+set push, 13 ; Stack contains two 13s, now.
+ifn push, pop
+  jsr fail
+; Stack is now empty.
+ifn sp, temp_stack
+  jsr fail
+
+; Duplicates the top argument on the stack.
+mktest T_push_peek, 204
+set push, 6
+set push, peek ; Duplicates the 6.
+
+ifn sp, temp_stack - 2
+  jsr fail
+ifn [temp_stack-1], 6
+  jsr fail
+ifn [temp_stack-2], 6
+  jsr fail
+
+
+; Drops the second-from-top item (by popping the top and writing it over top
+; of the formerly-second item.
+mktest T_peek_pop, 205
+add peek, 3 ; Stack is now 6 9.
+set peek, pop ; Now just 9.
+
+ifn sp, temp_stack - 1
+  jsr fail
+ifn [temp_stack-1], 9
+  jsr fail
+
+
+set sp, [old_sp]
+set pc, pop
+
+
+
+:test_mangling_sp
+set [old_sp], sp
+set sp, temp_stack
+
+; Pushing SP pushes the current value.
+mktest T_push_sp, 210
+set push, sp ; SP was temp_stack, which is written at temp_stack-1.
+
+ifn sp, temp_stack - 1
+  jsr fail
+ifn [temp_stack-1], temp_stack
+  jsr fail
+
+
+; Popping into SP works correctly: the value popped becomes the new value.
+; SP gets incremented, but that value is overwritten.
+mktest T_sp_pop, 211
+set sp, temp_stack - 6
+set push, temp_stack
+
+set sp, pop ; Reads temp_stack, bumps SP (to ts-6), overwrites SP with temp_stack.
+
+ifn sp, temp_stack
+  jsr fail
+
+
+; Even more convoluted: adding TOS to SP.
+mktest T_add_sp_pop, 212
+set push, 6 ; SP is ts-1, [ts-1] is 6.
+add sp, pop ; Pops [ts-1] = 6, increments SP to ts.
+; Then adds 6 to the popped value, so the final SP is ts+6.
+
+ifn sp, temp_stack + 6
+  jsr fail
+
+set sp, [old_sp]
+set pc, pop
+
+
+:test_pick
+set [old_sp], sp
+set sp, temp_stack
+
+mktest T_pick_0, 220
+set push, 4
+set a, [sp+0]
+ifn a, 4
+  jsr fail
+ifn sp, temp_stack-1
+  jsr fail
+
+mktest T_pick_1_push, 221
+set push, 3
+set push, [sp+1] ; Grabs the 4 and pushes another 4.
+
+ifn sp, temp_stack-3
+  jsr fail
+ifn [temp_stack-1], 4
+  jsr fail
+ifn [temp_stack-2], 3
+  jsr fail
+ifn [temp_stack-3], 4
+  jsr fail
+
+mktest T_pick_1_pop, 222
+; Stack holds 4 3 4. This pops a 4, reads the other 4, and overwrites with 8.
+; That leaves 8 3 on the stack (3 on top).
+add [sp+1], pop
+
+ifn sp, temp_stack-2
+  jsr fail
+ifn [temp_stack-2], 3
+  jsr fail
+ifn [temp_stack-1], 8
+  jsr fail
+
+mktest T_pick_negative, 223
+; Kind of a hack: this is relying on the extra 4 still being at [SP-1].
+set a, [sp-1]
+ifn a, 4
+  jsr fail
+
+set sp, [old_sp]
+set pc, pop
+
+
+
+:test_ex
+mktest T_ex_rw, 230
+set ex, 7
+ifn ex, 7
+  jsr fail
+
+mktest T_add_ex, 231
+set ex, 5
+add ex, 3 ; Adds 5 to 3, sets EX to 8 - but then overwrites to 0 - no overflow.
+ifn ex, 0
+  jsr fail
+
+mktest T_add_ex_overflow, 232
+set ex, 0x8400
+add ex, ex ; Adds to 0x800, which is overflow. EX=1
+ifn ex, 1
+  jsr fail
+
+mktest T_ex_adx, 233
+set ex, 324
+set a, 19
+adx a, ex ; b = b + a + EX, so A is set to 19 + 324 + 324 = 667. EX=0.
+ifn a, 667
+  jsr fail
+ifn ex, 0
+  jsr fail
+
+set pc, pop
+
+
+; Incrementing I and J is the final step: if I and J are used in the instruction
+; they are incremented later.
+:test_sti_std
+mktest T_sti_order, 240
+set i, 17
+set j, 224
+sti j, i ; J becomes 17, then both are incremented to 18.
+ifn i, 18
+  jsr fail
+ifn j, 18
+  jsr fail
+
+mktest T_sti_order, 241
+set i, 17
+set j, 224
+std j, i ; J becomes 17, then both are decremented to 16.
+ifn i, 16
+  jsr fail
+ifn j, 16
+  jsr fail
+
+set pc, pop
+

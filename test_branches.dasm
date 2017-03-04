@@ -340,7 +340,7 @@ set pc, pop
 
 :test_suite_branch_nesting ; Tests that cascading branches work correctly.
 ; First, a simple positive check:
-mktest T_branch_cascading_works, 200
+mktest T_branch_cascading_works, 180
 set a, 45
 set b, 60
 set c, 0
@@ -353,7 +353,7 @@ ife c, 0
   jsr fail
 
 
-mktest T_branch_cascading_first_fails, 201
+mktest T_branch_cascading_first_fails, 181
 set c, 0
 ife a, 30
   ifg a, 0
@@ -362,7 +362,7 @@ ife a, 30
 ifn c, 0
   jsr fail
 
-mktest T_branch_cascading_second_fails, 202
+mktest T_branch_cascading_second_fails, 182
 set c, 0
 ife a, 45
   ifg a, 90
@@ -371,7 +371,7 @@ ife a, 45
 ifn c, 0
   jsr fail
 
-mktest T_branch_cascading_third_fails, 203
+mktest T_branch_cascading_third_fails, 183
 set c, 0
 ife a, 45
   ifg a, 90
