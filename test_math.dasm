@@ -1,0 +1,322 @@
+:test_suite_math
+jsr test_add
+jsr test_sub
+jsr test_unsigned_multiplication
+jsr test_signed_multiplication
+jsr test_unsigned_division
+jsr test_signed_division
+jsr test_bitwise
+jsr test_shifts
+set pc, pop
+
+
+:test_add
+mktest T_add_basics, 300
+set a, 9
+add a, 3
+
+ifn a, 12
+  jsr fail
+ifn ex, 0
+  jsr fail
+
+mktest T_add_negative, 301
+set a, 9
+add a, -4
+
+ifn a, 5
+  jsr fail
+ifn ex, 1 ; This is overflow.
+  jsr fail
+
+set pc, pop
+
+:test_sub
+mktest T_sub_basics, 310
+set a, 9
+sub a, 3
+ifn a, 6
+  jsr fail
+ifn ex, 0
+  jsr fail
+
+mktest T_sub_overflow, 311
+set a, 9
+sub a, 12 ; Underflows.
+ifn a, -3
+  jsr fail
+ifn ex, -1
+  jsr fail
+
+set pc, pop
+
+
+:test_unsigned_multiplication
+mktest T_mul_basics, 320
+set a, 9
+mul a, 6 ; A = 54, EX = 0
+ifn a, 54
+  jsr fail
+ifn ex, 0
+  jsr fail
+
+mktest T_mul_big, 321
+set a, 780
+mul a, 1357 ; 780 * 1357 = 1,058,460 = 0x10269C
+
+ifn a, 0x269c
+  jsr fail
+ifn ex, 0x10
+  jsr fail
+
+mktest T_mul_overflow, 322
+set a, 0xa932
+mul a, 9 ; 0xa932 * 9 = 0x5f2c2
+
+ifn a, 0xf2c2
+  jsr fail
+ifn ex, 0x5
+  jsr fail
+
+set pc, pop
+
+
+:test_signed_multiplication
+mktest T_mli_basics, 330
+set a, 6
+mli a, 4
+ifn a, 24
+  jsr fail
+ifn ex, 0
+  jsr fail
+
+mktest T_mli_neg_pos, 331
+set a, -6
+mli a, 4
+ifn a, -24
+  jsr fail
+ifn ex, -1
+  jsr fail
+
+mktest T_mli_pos_neg, 332
+set a, 6
+mli a, -4
+ifn a, -24
+  jsr fail
+ifn ex, -1
+  jsr fail
+
+mktest T_mli_neg_neg, 333
+set a, -6
+mli a, -4
+ifn a, 24
+  jsr fail
+ifn ex, 0
+  jsr fail
+
+mktest T_mli_big_pos_pos, 334
+set a, 12548
+mli a, 290 ; 12548 * 290 = 3,638,920 = 0x378688
+ifn a, 0x8688
+  jsr fail
+ifn ex, 0x37
+  jsr fail
+
+mktest T_mli_big_pos_neg, 335
+set a, 12548
+mli a, -290 ; 12548 * -290 = -3,638,920 = 0xffc8 7978
+ifn a, 0x7978
+  jsr fail
+ifn ex, 0xffc8
+  jsr fail
+
+mktest T_mli_big_neg_pos, 336
+set a, -12548
+mli a, 290 ; -12548 * 290 = -3,638,920 = 0xffc8 7978
+ifn a, 0x7978
+  jsr fail
+ifn ex, 0xffc8
+  jsr fail
+
+mktest T_mli_big_neg_neg, 337
+set a, -12548
+mli a, -290 ; -12548 * -290 = 3,638,920 = 0x37 8688
+ifn a, 0x8688
+  jsr fail
+ifn ex, 0x37
+  jsr fail
+
+set pc, pop
+
+
+:test_unsigned_division
+mktest T_div_basics, 340
+set a, 54
+div a, 9
+ifn a, 6
+  jsr fail
+ifn ex, 0
+  jsr fail
+
+mktest T_div_by_zero, 341
+set a, 54
+div a, 0
+ifn a, 0
+  jsr fail
+ifn ex, 0
+  jsr fail
+
+mktest T_div_rounding, 342
+set a, 58
+div a, 6 ; 58 / 6 = 9 R 4
+ifn a, 9
+  jsr fail
+ifn ex, 0xaaaa
+  jsr fail
+
+mktest T_mod_basics, 343
+set a, 58
+mod a, 6 ; 58 / 6 = 9 R 4
+ifn a, 4
+  jsr fail
+ifn ex, 0
+  jsr fail
+
+mktest T_div_big, 344
+set a, 52087
+div a, 116 ; 52087 / 116 = 449 R 3
+ifn a, 449
+  jsr fail
+ifn ex, 0x69e
+  jsr fail
+
+mktest T_mod_big, 345
+set a, 52087
+mod a, 116 ; 52087 / 116 = 449 R 3
+ifn a, 3
+  jsr fail
+ifn ex, 0
+  jsr fail
+
+set pc, pop
+
+
+:test_signed_division
+mktest T_dvi_neg_pos, 350
+set a, -7
+dvi a, 2
+ifn a, -3
+  jsr fail
+ifn ex, 0x8000
+  jsr fail
+
+mktest T_mdi_neg_pos, 351
+set a, -7
+mdi a, 2
+ifn a, -1
+  jsr fail
+
+mktest T_dvi_pos_neg, 352
+set a, 7
+dvi a, -2
+ifn a, -3
+  jsr fail
+ifn ex, 0x8000
+  jsr fail
+
+mktest T_mdi_pos_neg, 353
+set a, 7
+mdi a, -2
+ifn a, 1
+  jsr fail
+
+mktest T_dvi_neg_neg, 354
+set a, -7
+dvi a, -2
+ifn a, 3
+  jsr fail
+ifn ex, 0x8000
+  jsr fail
+
+mktest T_mdi_neg_neg, 355
+set a, -7
+mdi a, -2
+ifn a, -1
+  jsr fail
+
+set pc, pop
+
+
+:test_bitwise
+mktest T_and_basics, 360
+set a, 0xcf89
+and a, 0x8312 ; 0x8300
+ifn a, 0x8300
+  jsr fail
+
+mktest T_bor_basics, 361
+set a, 0xcf89
+bor a, 0x8312 ; 0xcf9b
+ifn a, 0xcf9b
+  jsr fail
+
+mktest T_xor_basics, 362
+set a, 0xcf89
+xor a, 0x8312 ; 0x4c9b
+ifn a, 0x4c9b
+  jsr fail
+
+set pc, pop
+
+
+:test_shifts
+mktest T_shr_basics, 370
+set a, 0xcf89
+shr a, 9 ; 0x67:c480
+ifn a, 0x67
+  jsr fail
+ifn ex, 0xc480
+  jsr fail
+
+mktest T_asr_basics, 371
+set a, 0xcf89
+asr a, 9 ; 0xffe7:c480
+ifn a, 0xffe7
+  jsr fail
+ifn ex, 0xc480
+  jsr fail
+
+mktest T_shl_basics, 372
+set a, 0xcf89
+shl a, 9
+ifn a, 0x1200
+  jsr fail
+ifn ex, 0x019f
+  jsr fail
+
+mktest T_shr_long, 373
+set a, 0xcf89
+shr a, 18
+ifn a, 0
+  jsr fail
+ifn ex, 0x33e2
+  jsr fail
+
+mktest T_asr_long, 374
+set a, 0xcf89
+asr a, 18
+ifn a, -1
+  jsr fail
+ifn ex, 0xf3e2
+  jsr fail
+
+mktest T_shl_long, 375
+set a, 0xcf89
+shl a, 18
+ifn a, 0
+  jsr fail
+ifn ex, 0x3e24
+  jsr fail
+
+set pc, pop
+

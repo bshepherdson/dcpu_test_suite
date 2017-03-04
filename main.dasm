@@ -51,6 +51,7 @@ jsr test_suite_branch_failures
 jsr test_suite_branch_success
 jsr test_suite_branch_nesting
 jsr test_suite_arguments
+jsr test_suite_math
 
 
 ; Tests all passed!
@@ -73,12 +74,9 @@ set pc, spin ; Infinite loop.
 
 .include "test_branches.dasm"
 .include "test_arguments.dasm"
+.include "test_math.dasm"
 
 ; Things to test:
-; - correct handling of arguments, especially weird combinations like
-;   set peek, pop.
-; - math and bit shifts (especially EX handling)
-; - division - enforce symmetric division?
 ; - interrupts - probably use timer
 
 
