@@ -52,6 +52,7 @@ jsr test_suite_branch_success
 jsr test_suite_branch_nesting
 jsr test_suite_arguments
 jsr test_suite_math
+jsr test_suite_interrupts
 
 
 ; Tests all passed!
@@ -75,9 +76,7 @@ set pc, spin ; Infinite loop.
 .include "test_branches.dasm"
 .include "test_arguments.dasm"
 .include "test_math.dasm"
-
-; Things to test:
-; - interrupts - probably use timer
+.include "test_interrupts.dasm"
 
 
 ; Called if we end up back at PC 0 for some reason.

@@ -6,6 +6,7 @@
 .define fg_black, 0
 .define fg_red, 0x4000
 .define fg_blue, 0x9000
+.define fg_yellow, 0x6000
 .define fg_white, 0xf000
 .define bg_white, 0x0f00
 .define bg_blue, 0x0100

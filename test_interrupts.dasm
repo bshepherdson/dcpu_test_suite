@@ -1,0 +1,100 @@
+:test_suite_interrupts
+; First, check if we found the timer.
+set a, dev_timer
+jsr get_device ; -1 on failure.
+
+ife a, -1
+  set pc, no_timer
+
+set [timer], a
+
+; We did find the timer, so let's set things up.
+mktest T_int_iag_ias_work, 400
+iaq 1
+ias interrupt_handler
+iag c
+ifn c, interrupt_handler
+  jsr fail
+
+; Now configure the timer to tick at 60Hz, and interrupt with message 6.
+mktest T_interrupts_happen, 401
+set a, 2 ; SET_INT
+set b, 6 ; message
+hwi [timer]
+
+; Clear the tick counter.
+set a, 1 ; GET_TICKS
+hwi [timer]
+
+; And set the pace.
+set a, 0 ; SET_SPEED
+set b, 1 ; 60Hz
+hwi [timer]
+
+set [expected_message], 6
+iaq 0 ; Enable interrupts again.
+
+set a, 20000
+:wait_loop
+sub a, 1
+ifg a, 0
+  set pc, wait_loop
+
+; Disable the timer again.
+set a, 0
+set b, 0
+hwi [timer]
+
+ife [interrupt_count], 0
+  jsr fail
+
+set a, 1 ; GET_TICKS
+hwi [timer] ; C is the tick count.
+
+ife c, 0
+  jsr fail
+
+
+
+mktest T_hlt_works, 402
+set [color], fg_black | bg_white
+jsr print_pc
+.dat "Testing HLT... ", 0
+
+set a, 0 ; SET_TICKS
+set b, 1
+hwi [timer]
+
+iaq 0 ; Ensure queueing is off.
+hlt 0 ; DCPU stalled.
+
+; If we reach here, de-halting works properly.
+set [color], fg_blue | bg_white
+jsr print_pc
+.dat "works!           ", 0
+
+set a, 0
+set b, 0
+hwi [timer] ; Disable the ticking again.
+
+set pc, pop
+
+
+:timer .dat -1
+:interrupt_count .dat 0
+:expected_message .dat 0
+
+:interrupt_handler
+ifn a, [expected_message]
+  jsr fail
+add [interrupt_count], 1
+rfi 0
+
+
+:no_timer
+set [color], fg_yellow | bg_white
+jsr print_pc
+;     0123456789abcdef0123456789abcdef
+.dat "No timer. Interrupt test skipped", 0
+set pc, pop
+

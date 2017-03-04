@@ -4,6 +4,7 @@
 .define dev_lem1802, 0
 .define dev_keyboard, 1
 .define dev_disk, 2
+.define dev_timer, 3
 
 .define _dev_table_number, 0
 .define _dev_table_id_hi, 1
@@ -12,7 +13,7 @@
 .define _dev_table_manufacturer_lo, 4
 .define _dev_table_width, 5
 
-:_device_ids .dat 0, 0, 0
+:_device_ids .dat -1, -1, -1, -1
 :_device_ids_end
 
 
@@ -29,6 +30,11 @@
 
 ; Floppy: ID 0x4fd524c5 Maker 0x1eb37e91 (Mackapar 3.5" floppy, TC ID)
 .dat dev_disk, 0x4fd5, 0x24c5, 0x1eb3, 0x7e91
+
+; Timer: ID 0x12d0b402 Maker 0x1c6c8b36 (NYA Elektriska)
+.dat dev_timer, 0x12d0, 0xb402, 0x1c6c, 0x8b36
+; Timer: ID 0x12d1b402 Maker 0x1c6c8b36 (NYA Elektriska)
+.dat dev_timer, 0x12d1, 0xb402, 0x1c6c, 0x8b36
 :_dev_table_end
 
 
